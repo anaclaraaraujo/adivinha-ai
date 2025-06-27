@@ -18,7 +18,8 @@ function App() {
   const ATTEMPT_MARGIN = 5;
 
   function handleRestartGame() {
-    alert("Reinicie o jogo!");
+    const isConfirmed = confirm("Você tem certeza que deseja reiniciar o jogo?");
+    if (isConfirmed) startGame();
   }
 
   function startGame() {
@@ -38,7 +39,11 @@ function App() {
     const value = letter.toUpperCase()
     const exists = lettersUsed.find((used) => used.value.toUpperCase() === value)
 
-    if (exists) return alert("Você já digitou essa letra " + value)
+    if (exists) {
+      alert(`Você já utilizou a letra: ${value}`);
+      setLetter("");
+      return;
+    }
 
     const hits = challenge.word.toUpperCase().split("").filter((chat) => chat === value).length
 
@@ -50,9 +55,29 @@ function App() {
     setLetter("")
   }
 
+  function endGame(message: string) {
+    alert(message)
+    startGame()
+  }
+
   useEffect(() => {
     startGame()
   }, [])
+
+  useEffect(() => {
+    if (!challenge) return
+
+    setTimeout(() => {
+      if (score === challenge.word.length)
+        return endGame("Parabéns! 🎉 Você descobriu a palavra! 👏🏽")
+
+      const attemptLimit = challenge.word.length + ATTEMPT_MARGIN
+
+      if (lettersUsed.length === attemptLimit)
+        return endGame("Que pena, você usou todas as tentativas!")
+
+    }, 200)
+  }, [score, lettersUsed.length, challenge, endGame])
 
   if (!challenge) return
 
