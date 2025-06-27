@@ -4,6 +4,7 @@ import { Header } from './components/Header'
 import { Input } from './components/Input'
 import { Letter } from './components/Letter'
 import { LettersUsed } from './components/LettersUsed'
+import { Modal } from './components/Modal'
 import { Tip } from './components/Tip'
 import { useGameLogic } from './hooks/useGameLogic'
 
@@ -16,7 +17,9 @@ function App() {
     challenge,
     attemptLimit,
     handleConfirm,
-    handleRestartGame
+    handleRestartGame,
+    modal,
+    closeModal
   } = useGameLogic()
 
   if (!challenge) return null
@@ -60,6 +63,14 @@ function App() {
         </div>
         <LettersUsed data={lettersUsed} />
       </main>
+      <Modal
+        isOpen={modal.isOpen}
+        message={modal.message}
+        onClose={modal.onConfirm || closeModal}
+        onConfirm={modal.onConfirm}
+        confirmText={modal.confirmText}
+        cancelText={modal.cancelText}
+      />
     </div>
   )
 }

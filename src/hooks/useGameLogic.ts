@@ -2,6 +2,14 @@ import { useCallback, useEffect, useReducer, useState } from "react";
 import { WORDS, type Challenge } from "../utils/words";
 import { gameReducer, initialGameState } from "../reducer/gameReducer";
 
+interface ModalState {
+  isOpen: boolean;
+  message: string;
+  onConfirm?: () => void;
+  confirmText?: string;
+  cancelText?: string;
+}
+
 interface UseGameLogicResult {
   currentLetterInput: string;
   setCurrentLetterInput: React.Dispatch<React.SetStateAction<string>>;
@@ -11,6 +19,8 @@ interface UseGameLogicResult {
   attemptLimit: number;
   handleConfirm: () => void;
   handleRestartGame: () => void;
+  modal: ModalState;
+  closeModal: () => void;
 }
 
 export function useGameLogic(): UseGameLogicResult {
@@ -18,23 +28,16 @@ export function useGameLogic(): UseGameLogicResult {
   const { lettersUsed, challenge, score, attemptLimit } = state;
   const [currentLetterInput, setCurrentLetterInput] = useState("");
 
+  const [modal, setModal] = useState<ModalState>({
+    isOpen: false,
+    message: "",
+  });
+
   const ATTEMPT_MARGIN = 5;
 
-  const endGame = useCallback(
-    (message: string) => {
-      alert(message);
-
-      const index = Math.floor(Math.random() * WORDS.length);
-      const randomWORD = WORDS[index];
-      const newAttemptLimit = randomWORD.word.length + ATTEMPT_MARGIN;
-      dispatch({
-        type: "START_GAME",
-        payload: { challenge: randomWORD, attemptLimit: newAttemptLimit },
-      });
-      setCurrentLetterInput("");
-    },
-    [dispatch]
-  );
+  const closeModal = useCallback(() => {
+    setModal({ isOpen: false, message: "" });
+  }, []);
 
   const startGame = useCallback(() => {
     const index = Math.floor(Math.random() * WORDS.length);
@@ -46,21 +49,49 @@ export function useGameLogic(): UseGameLogicResult {
       payload: { challenge: randomWORD, attemptLimit: newAttemptLimit },
     });
     setCurrentLetterInput("");
-  }, [dispatch, ATTEMPT_MARGIN]);
+    closeModal();
+  }, [dispatch, ATTEMPT_MARGIN, closeModal]);
+
+  const endGame = useCallback(
+    (message: string) => {
+      setModal({
+        isOpen: true,
+        message: message,
+        onConfirm: startGame,
+        confirmText: "Jogar Novamente",
+        cancelText: "Fechar",
+      });
+    },
+    [startGame]
+  );
 
   const handleRestartGame = useCallback(() => {
-    const isConfirmed = confirm(
-      "Você tem certeza que deseja reiniciar o jogo?"
-    );
-    if (isConfirmed) {
-      dispatch({ type: "RESET_GAME" });
-      startGame();
-    }
-  }, [dispatch, startGame]);
+    setModal({
+      isOpen: true,
+      message: "Você tem certeza que deseja reiniciar o jogo?",
+      onConfirm: () => {
+        dispatch({ type: "RESET_GAME" });
+        startGame();
+        closeModal();
+      },
+      confirmText: "Sim, reiniciar",
+      cancelText: "Não",
+    });
+  }, [dispatch, startGame, closeModal]);
 
   const handleConfirm = useCallback(() => {
     if (!challenge) return;
-    if (!currentLetterInput.trim()) return alert("Digite uma letra!");
+    if (!currentLetterInput.trim()) {
+      setModal({
+        isOpen: true,
+        message: "Digite uma letra!",
+        onConfirm: closeModal,
+        confirmText: "OK",
+        cancelText: "OK",
+      });
+      setCurrentLetterInput("");
+      return;
+    }
 
     const value = currentLetterInput.toUpperCase();
     const exists = lettersUsed.find(
@@ -68,7 +99,13 @@ export function useGameLogic(): UseGameLogicResult {
     );
 
     if (exists) {
-      alert(`Você já utilizou a letra: ${value}`);
+      setModal({
+        isOpen: true,
+        message: `Você já utilizou a letra: ${value}`,
+        onConfirm: closeModal,
+        confirmText: "OK",
+        cancelText: "OK",
+      });
       setCurrentLetterInput("");
       return;
     }
@@ -84,7 +121,7 @@ export function useGameLogic(): UseGameLogicResult {
       payload: { value, correct, hits },
     });
     setCurrentLetterInput("");
-  }, [challenge, currentLetterInput, lettersUsed, dispatch]);
+  }, [challenge, currentLetterInput, lettersUsed, dispatch, closeModal]);
 
   useEffect(() => {
     startGame();
@@ -94,11 +131,11 @@ export function useGameLogic(): UseGameLogicResult {
     if (!challenge) return;
 
     if (score === challenge.word.length) {
-      return endGame("Parabéns! 🎉 Você descobriu a palavra! 👏🏽");
+      return endGame("Você descobriu a palavra! 👏🏽 Parabéns! 🎉 ");
     }
 
     if (lettersUsed.length === attemptLimit && lettersUsed.length > 0) {
-      return endGame("Que pena, você usou todas as tentativas!");
+      return endGame("Você usou todas as tentativas! Que pena! ");
     }
   }, [score, lettersUsed.length, challenge, attemptLimit, endGame]);
 
@@ -111,5 +148,7 @@ export function useGameLogic(): UseGameLogicResult {
     attemptLimit,
     handleConfirm,
     handleRestartGame,
+    modal,
+    closeModal,
   };
 }
