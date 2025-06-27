@@ -1,58 +1,66 @@
-import { useEffect, useState } from 'react';
-import styles from './app.module.css'
+import { useEffect, useReducer, useState } from 'react';
+import styles from './app.module.css';
 import { Button } from './components/Button';
-import { Header } from './components/Header'
+import { Header } from './components/Header';
 import { Input } from './components/Input';
 import { Letter } from './components/Letter';
-import { LettersUsed, type LettersUsedProps } from './components/LettersUsed';
+import { LettersUsed } from './components/LettersUsed';
 import { Tip } from './components/Tip';
 
-import { WORDS, type Challenge } from "./utils/words"
+import { WORDS } from "./utils/words";
+
+import { gameReducer, initialGameState } from './reducer/gameReducer';
+
 
 function App() {
-  const [letter, setLetter] = useState("")
-  const [lettersUsed, setLettersUsed] = useState<LettersUsedProps[]>([])
-  const [challenge, setChallenge] = useState<Challenge | null>(null)
-  const [score, setScore] = useState(0)
+  const [state, dispatch] = useReducer(gameReducer, initialGameState)
 
-  const ATTEMPT_MARGIN = 5;
+  const { lettersUsed, challenge, score, attemptLimit } = state
+  const [currentLetterInput, setCurrentLetterInput] = useState("")
+
+  const ATTEMPT_MARGIN = 5
 
   function handleRestartGame() {
-    const isConfirmed = confirm("Você tem certeza que deseja reiniciar o jogo?");
-    if (isConfirmed) startGame();
+    const isConfirmed = confirm("Você tem certeza que deseja reiniciar o jogo?")
+    if (isConfirmed) {
+      dispatch({ type: "RESET_GAME" })
+      startGame()
+    }
   }
 
   function startGame() {
-    const index = Math.floor(Math.random() * WORDS.length);
+    const index = Math.floor(Math.random() * WORDS.length)
     const randomWORD = WORDS[index]
-    setChallenge(randomWORD)
+    const newAttemptLimit = randomWORD.word.length + ATTEMPT_MARGIN
 
-    setScore(0)
-    setLetter("")
-    setLettersUsed([])
+    dispatch({
+      type: "START_GAME",
+      payload: { challenge: randomWORD, attemptLimit: newAttemptLimit },
+    })
+    setCurrentLetterInput("")
   }
 
   function handleConfirm() {
     if (!challenge) return
-    if (!letter.trim()) return alert("Digite uma letra!")
+    if (!currentLetterInput.trim()) return alert("Digite uma letra!")
 
-    const value = letter.toUpperCase()
+    const value = currentLetterInput.toUpperCase()
     const exists = lettersUsed.find((used) => used.value.toUpperCase() === value)
 
     if (exists) {
-      alert(`Você já utilizou a letra: ${value}`);
-      setLetter("");
-      return;
+      alert(`Você já utilizou a letra: ${value}`)
+      setCurrentLetterInput("")
+      return
     }
 
-    const hits = challenge.word.toUpperCase().split("").filter((chat) => chat === value).length
-
+    const hits = challenge.word.toUpperCase().split("").filter((char) => char === value).length
     const correct = hits > 0
-    const currentScore = score + hits
 
-    setLettersUsed((prevState) => [...prevState, { value, correct }])
-    setScore(currentScore)
-    setLetter("")
+    dispatch({
+      type: "ADD_LETTER_USED",
+      payload: { value, correct, hits },
+    })
+    setCurrentLetterInput("")
   }
 
   function endGame(message: string) {
@@ -67,24 +75,21 @@ function App() {
   useEffect(() => {
     if (!challenge) return
 
-    setTimeout(() => {
-      if (score === challenge.word.length)
-        return endGame("Parabéns! 🎉 Você descobriu a palavra! 👏🏽")
+    if (score === challenge.word.length) {
+      return endGame("Parabéns! 🎉 Você descobriu a palavra! 👏🏽")
+    }
 
-      const attemptLimit = challenge.word.length + ATTEMPT_MARGIN
+    if (lettersUsed.length === attemptLimit && lettersUsed.length > 0) {
+      return endGame("Que pena, você usou todas as tentativas!")
+    }
+  }, [score, lettersUsed.length, challenge, attemptLimit, endGame])
 
-      if (lettersUsed.length === attemptLimit)
-        return endGame("Que pena, você usou todas as tentativas!")
-
-    }, 200)
-  }, [score, lettersUsed.length, challenge, endGame])
-
-  if (!challenge) return
+  if (!challenge) return null
 
   return (
     <div className={styles.container}>
       <main>
-        <Header current={lettersUsed.length} max={challenge.word.length + ATTEMPT_MARGIN} onRestart={handleRestartGame} />
+        <Header current={lettersUsed.length} max={attemptLimit} onRestart={handleRestartGame} />
         <Tip tip={challenge.tip} />
         <div className={styles.words}>
           {challenge.word.split("").map((char, index) => {
@@ -108,8 +113,8 @@ function App() {
             autoFocus
             maxLength={1}
             placeholder="?"
-            onChange={(e) => setLetter(e.target.value)}
-            value={letter}
+            onChange={(e) => setCurrentLetterInput(e.target.value)}
+            value={currentLetterInput}
           />
           <Button title="Confirmar" onClick={handleConfirm} />
         </div>
